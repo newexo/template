@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "template"
+version = "0.0.1"
+description = "Template for creating new python packages"
+authors = ["Reuben Brasher <rkbrasher@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "template"}]
+include = ["data/*", "README.md", "template/tests/test_data/*"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+poetry = "^1.7"
+pytest = "^8.0"
+black = "^24.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
