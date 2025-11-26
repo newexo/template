@@ -166,3 +166,18 @@ print(contents)
 ```
 
 This pattern avoids hard-coded paths and ensures that file resolution remains consistent regardless of the user’s current working directory or the environment in which the code is executed.
+
+## Makefile-Based Workflow
+
+The repository includes a `Makefile` intended to streamline routine development tasks. All commands are executed through Poetry, ensuring that tests, formatting and linting run inside the project’s configured environment. The Makefile defines targets for running the test suite, formatting the codebase and checking code style.
+
+Once the development environment has been created and dependencies installed, the following commands may be issued from the project root:
+
+| Command       | Action Performed                                                   |
+|---------------|--------------------------------------------------------------------|
+| `make test`   | Runs the full test suite with Pytest using the Poetry environment. |
+| `make format` | Applies Black formatting across the project source tree.           |
+| `make lint`   | Executes Flake8 to perform static analysis and style checking.     |
+| `make check`  | Runs formatting, linting and tests in sequence.                    |
+
+These commands provide a concise interface for routine quality assurance. In practice, `make check` is the most comprehensive option, as it formats the code, evaluates style compliance and executes tests in a single step.
