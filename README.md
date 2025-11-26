@@ -181,3 +181,4 @@ Once the development environment has been created and dependencies installed, th
 | `make check`  | Runs formatting, linting and tests in sequence.                    |
 
 These commands provide a concise interface for routine quality assurance. In practice, `make check` is the most comprehensive option, as it formats the code, evaluates style compliance and executes tests in a single step.
+
