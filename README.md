@@ -63,11 +63,9 @@ Failure to update this field will lead Poetry to search for a package that no lo
 
 ## Creating a Development Environment and Installing Dependencies
 
-Once the repository has been refactored to reflect the new project name, development should proceed within an isolated Python environment. An isolated environment prevents conflicts with system-level packages and ensures that dependencies specified in the `pyproject.toml` are installed in a controlled and reproducible manner. Several environment managers may be used for this purpose, and the choice depends on the user’s preferred workflow.
+Create an isolated Python environment before installing project dependencies. This prevents conflicts with system packages and keeps development reproducible. You may use `venv`, Conda or pyenv.
 
-### Using `venv`
-
-Python’s built-in `venv` module provides a minimal, lightweight method for creating an isolated environment:
+### Using venv
 
 ```bash
 python3 -m venv .venv
@@ -75,11 +73,7 @@ source .venv/bin/activate
 pip install poetry
 ```
 
-After activation, installing Poetry inside the environment ensures that all subsequent dependency management remains isolated within the project.
-
 ### Using Conda
-
-Users who prefer Conda may create an environment with a specified Python version and then install Poetry within it:
 
 ```bash
 conda create -n <ENV_NAME> python=3.11
@@ -87,23 +81,32 @@ conda activate <ENV_NAME>
 pip install poetry
 ```
 
+### Using pyenv
+
+```bash
+pyenv install 3.11
+pyenv virtualenv 3.11 <ENV_NAME>
+pyenv activate <ENV_NAME>
+pip install poetry
+```
+
 ### Installing Project Dependencies
 
-After activating the environment—whether created with `venv` or Conda—dependencies for the new project, including development dependencies, may be installed with a single command:
+After you activate the environment, install all project and development dependencies:
 
 ```bash
 poetry install --with dev
 ```
 
-Poetry will resolve the dependency graph specified in the `pyproject.toml` and populate the environment accordingly. Once completed, the environment is fully prepared for development, testing and further extension of the project.
+This command configures the environment for development, testing and further extension of the project.
 
-## Overview of the Resulting Project Structure
+## Overview of the Project Structure
 
-Once the repository has been cloned, renamed and configured within an isolated environment, the project assumes the form of a standard, Poetry-managed Python package. Although the specific directory names will reflect the chosen package name rather than the template placeholder, the overall structure remains consistent with conventional Python packaging practices. A representative layout appears as follows:
+The project uses a standard layout for a Poetry-based Python package. The top-level directory contains the source package, its tests, supporting data, notebooks and the configuration files that define the development workflow. A typical structure is:
 
 ```
 <PROJECT_ROOT>/
-    <PACKAGE_NAME>/           # Main Python package (renamed from "template")
+    <PACKAGE_NAME>/           # Main Python package
         __init__.py
         _version.py
         directories.py
@@ -113,37 +116,38 @@ Once the repository has been cloned, renamed and configured within an isolated e
             test_version.py
             test_data/
                 ...
-    data/                      # Optional data files distributed with the package
-    notebooks/                 # Jupyter notebooks or exploratory computational work
-    pyproject.toml             # Poetry configuration and project metadata
-    poetry.lock                # Resolved dependency lockfile
-    README.md                  # Project documentation (to be customized)
-    LICENSE                    # License for the new project
+    data/                     # Optional data files included with the package
+    notebooks/                # Jupyter notebooks for exploration or documentation
+    pyproject.toml            # Poetry configuration
+    poetry.lock               # Dependency lockfile
+    Makefile                  # Commands for formatting, linting, testing and coverage
+    README.md                 # Project documentation
+    LICENSE                   # Project license
 ```
 
-This structure separates the importable Python package from ancillary materials such as test suites, data files, notebooks and documentation. The `pyproject.toml` functions as the authoritative specification for dependencies and project metadata, while the `poetry.lock` file captures the fully resolved environment to promote reproducibility. The inclusion of a dedicated test directory supports test-driven or test-supported development from the outset, and the `data` and `notebooks` directories provide convenient locations for supplementary assets that often accompany scientific or exploratory work.
+Running `make coverage-html` creates a directory named `htmlcov` in the project root. This directory contains an HTML report that summarizes test coverage and supports interactive inspection. Git usually ignores this directory because it serves only local development needs.
+
+This structure separates the importable package from its tests and from supplementary materials. The `pyproject.toml` file defines all project metadata and dependencies. The Makefile provides a consistent interface for checks that support development quality, and the tests in the package directory help maintain correctness throughout the project lifecycle.
 
 ## Versioning and Package Initialization
 
-The template includes a simple mechanism for exposing the project’s version number directly within the Python package. This mechanism relies on two small files—`__init__.py` and `_version.py`—that work together to retrieve the version declared in the project’s metadata. After refactoring the package name, it is essential to verify that these files correctly reference the new package rather than the original template name.
+The package exposes its version through variables defined in `__init__.py` and `_version.py`. After you rename the package, update both files to use the new package name.
 
-The `__init__.py` file imports the version string from the internal module:
+In `__init__.py`, update the import:
 
 ```python
-from template._version import __version__
+from <PACKAGE_NAME>._version import __version__
 ```
 
-After renaming the package directory, the reference to `template` in this import statement must be updated to match the new package name. Modern refactoring tools may or may not adjust this import automatically, so it should always be reviewed manually.
-
-The `_version.py` file retrieves the project’s version from the package metadata recorded by Poetry:
+In `_version.py`, update the metadata lookup so that it matches the new package name:
 
 ```python
 import importlib.metadata
 
-__version__ = importlib.metadata.version("template")
+__version__ = importlib.metadata.version("<PACKAGE_NAME>")
 ```
 
-The string `"template"` must likewise be replaced with the new package name. If this change is omitted, attempts to import the version or install the package will result in errors, because Python will search for metadata associated with a package that no longer exists.
+These changes ensure that the package defines a correct `__version__` attribute and that the metadata lookup succeeds after renaming.
 
 ## Directory Resolution Utilities
 
@@ -169,16 +173,17 @@ This pattern avoids hard-coded paths and ensures that file resolution remains co
 
 ## Makefile-Based Workflow
 
-The repository includes a `Makefile` intended to streamline routine development tasks. All commands are executed through Poetry, ensuring that tests, formatting and linting run inside the project’s configured environment. The Makefile defines targets for running the test suite, formatting the codebase and checking code style.
+The Makefile provides a simple interface for common development tasks and runs all tools inside the Poetry environment. After you create and activate a development environment and install dependencies, issue the following commands from the project root:
 
-Once the development environment has been created and dependencies installed, the following commands may be issued from the project root:
+| Command              | Description                          |
+|----------------------|--------------------------------------|
+| `make test`          | Run the test suite.                  |
+| `make format`        | Format the code with Black.          |
+| `make lint`          | Run Flake8 checks.                   |
+| `make check`         | Run formatting, linting and tests.   |
+| `make coverage`      | Run tests with coverage enforcement. |
+| `make coverage-html` | Create an HTML coverage report.      |
 
-| Command       | Action Performed                                                   |
-|---------------|--------------------------------------------------------------------|
-| `make test`   | Runs the full test suite with Pytest using the Poetry environment. |
-| `make format` | Applies Black formatting across the project source tree.           |
-| `make lint`   | Executes Flake8 to perform static analysis and style checking.     |
-| `make check`  | Runs formatting, linting and tests in sequence.                    |
+These commands support routine quality checks and keep the workflow consistent across local development and continuous integration.
 
-These commands provide a concise interface for routine quality assurance. In practice, `make check` is the most comprehensive option, as it formats the code, evaluates style compliance and executes tests in a single step.
-
+The coverage threshold is defined in the Makefile. Projects should adjust this value to reflect their own testing standards.
