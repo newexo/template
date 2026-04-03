@@ -2,7 +2,7 @@
 
 This repository provides a minimal, opinionated starting point for creating new Python packages managed with Poetry. Its primary purpose is to offer a clean, lightweight structure that can be copied and adapted when beginning a new project, so that common configuration and layout decisions do not need to be repeated each time. The project defines a single top-level Python package named `template`, along with a corresponding `pyproject.toml` file that records package metadata, runtime requirements and development dependencies, and a small set of auxiliary files (such as data and test resources) intended to illustrate how such assets can be bundled with a package.
 
-The repository is designed to support a typical modern Python workflow in which Poetry handles dependency management and packaging, while auxiliary tools such as Pytest, Black, Flake8, Jupyter, Matplotlib and Seaborn are used for testing, formatting, linting and exploratory analysis. It is not intended as a functional library in its own right; instead, it serves as a scaffold that can be renamed, extended and customized to match the needs of a specific project, ensuring that new packages begin from a consistent and well-structured baseline.
+The repository is designed to support a typical modern Python workflow in which Poetry handles dependency management and packaging. It provides two optional dependency groups: a dev group for testing and code quality (Pytest, Black, Flake8, coverage), and a notebook group for interactive development and visualization (Jupyter, Matplotlib, Seaborn). It is not intended as a functional library in its own right; instead, it serves as a scaffold that can be renamed, extended and customized to match the needs of a specific project, ensuring that new packages begin from a consistent and well-structured baseline.
 
 ## Cloning the Template Repository
 
@@ -92,13 +92,43 @@ pip install poetry
 
 ### Installing Project Dependencies
 
-After you activate the environment, install all project and development dependencies:
+After you activate the environment, install project dependencies using Poetry. The project defines two optional dependency groups:
+
+**dev group**: Testing and code quality tools (pytest, black, flake8, coverage, pytest-cov)
+
+**notebook group**: Interactive development and visualization tools (jupyter, jupyterlab, matplotlib, seaborn)
+
+Install the base dependencies only:
+
+```bash
+poetry install
+```
+
+Install with the dev group (for testing and linting):
 
 ```bash
 poetry install --with dev
 ```
 
-This command configures the environment for development, testing and further extension of the project.
+Install with the notebook group (for Jupyter and visualization):
+
+```bash
+poetry install --with notebook
+```
+
+Install with both dev and notebook groups:
+
+```bash
+poetry install --with dev --with notebook
+```
+
+or equivalently:
+
+```bash
+poetry install --with dev,notebook
+```
+
+Choose the installation option that matches your workflow. The dev group is recommended for all development; the notebook group is optional for exploratory analysis and visualization work.
 
 ## Overview of the Project Structure
 
