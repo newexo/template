@@ -1,3 +1,6 @@
+# Package name, read from pyproject.toml so this Makefile is reusable across projects
+PACKAGE := $(shell awk -F'"' '/^name = / {print $$2; exit}' pyproject.toml)
+
 # Minimum coverage percentage required for tests to pass
 COVERAGE_FAIL = 50
 
@@ -19,10 +22,14 @@ lint:
 check: format lint test
 
 # Run tests with coverage enforcement (terminal output only)
+# Tests themselves are excluded from the coverage measurement.
 coverage:
-	poetry run pytest --cov=template --cov-report=term --cov-fail-under=$(COVERAGE_FAIL)
+	poetry run coverage run --source=$(PACKAGE) --omit="*/tests/*" -m pytest
+	poetry run coverage report --fail-under=$(COVERAGE_FAIL)
 
 # Run tests with coverage and produce an HTML report
 coverage-html:
-	poetry run pytest --cov=template --cov-report=html --cov-fail-under=$(COVERAGE_FAIL)
+	poetry run coverage run --source=$(PACKAGE) --omit="*/tests/*" -m pytest
+	poetry run coverage report --fail-under=$(COVERAGE_FAIL)
+	poetry run coverage html
 	@echo "HTML coverage report generated at htmlcov/index.html"
