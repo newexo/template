@@ -2,7 +2,7 @@
 
 This repository provides a minimal, opinionated starting point for creating new Python packages managed with Poetry. Its primary purpose is to offer a clean, lightweight structure that can be copied and adapted when beginning a new project, so that common configuration and layout decisions do not need to be repeated each time. The project defines a single top-level Python package named `template`, along with a corresponding `pyproject.toml` file that records package metadata, runtime requirements and development dependencies, and a small set of auxiliary files (such as data and test resources) intended to illustrate how such assets can be bundled with a package.
 
-The repository is designed to support a typical modern Python workflow in which Poetry handles dependency management and packaging. It provides two optional dependency groups: a dev group for testing and code quality (Pytest, Black, Flake8, coverage), and a notebook group for interactive development and visualization (Jupyter, Matplotlib, Seaborn). It is not intended as a functional library in its own right; instead, it serves as a scaffold that can be renamed, extended and customized to match the needs of a specific project, ensuring that new packages begin from a consistent and well-structured baseline.
+The repository is designed to support a typical modern Python workflow in which Poetry handles dependency management and packaging. It provides a dev group for testing and code quality (Pytest, Ruff, coverage, Vulture, deptry), installed by default, and an optional notebook group for interactive development and visualization (Jupyter, Matplotlib, Seaborn). It is not intended as a functional library in its own right; instead, it serves as a scaffold that can be renamed, extended and customized to match the needs of a specific project, ensuring that new packages begin from a consistent and well-structured baseline.
 
 ## Cloning the Template Repository
 
@@ -47,19 +47,32 @@ The template includes a single top-level Python package named `template`, which 
 
 The directory structure contains a folder named `template/` that serves as the importable package. This folder should be renamed to the project’s chosen package name. Most modern development environments provide tools for performing such renaming operations safely; however, these tools typically operate only on file paths and import statements. They do not automatically update configuration files.
 
-In particular, the `pyproject.toml` file must be edited manually to ensure that the package reference is consistent with the new name. The relevant portion of the file appears under the `[tool.poetry]` section:
+In particular, the `pyproject.toml` file must be edited manually. The name
+appears in two places. The distribution name lives under `[project]`:
 
 ```toml
-packages = [{ include = "template" }]
+[project]
+name = "myproject"
 ```
 
-If the package is renamed, for example, to `myproject`, this line must be updated accordingly:
+and the importable package under `[tool.poetry]`:
 
 ```toml
+[tool.poetry]
 packages = [{ include = "myproject" }]
 ```
 
-Failure to update this field will lead Poetry to search for a package that no longer exists, resulting in installation errors or misconfigured distributions. Users should therefore inspect the `pyproject.toml` carefully after refactoring the package name, ensuring that all references to `template` have been replaced with the selected project name.
+**Keep these two identical, and use underscores rather than hyphens.** PEP 621
+permits a hyphenated distribution name, and `poetry new` generates one by
+default, but the Makefile reads the distribution name and uses it as both a
+coverage target and a directory path. A mismatch is not subtle — coverage
+collapses to 0% and `make coverage` fails against its threshold — but keeping the
+names identical avoids the problem entirely.
+
+Failure to update the `packages` field will lead Poetry to search for a package
+that no longer exists, resulting in installation errors or misconfigured
+distributions. Inspect `pyproject.toml` carefully after refactoring, ensuring
+every reference to `template` has been replaced.
 
 ## Creating a Development Environment and Installing Dependencies
 
@@ -92,43 +105,43 @@ pip install poetry
 
 ### Installing Project Dependencies
 
-After you activate the environment, install project dependencies using Poetry. The project defines two optional dependency groups:
+After you activate the environment, install project dependencies using Poetry. The project defines two dependency groups:
 
-**dev group**: Testing and code quality tools (pytest, black, flake8, coverage, pytest-cov)
+**dev group**: Testing and code quality tools (pytest, ruff, coverage, vulture, deptry). Installed by default, because a fresh clone should be able to run `make check` immediately.
 
-**notebook group**: Interactive development and visualization tools (jupyter, jupyterlab, matplotlib, seaborn)
+**notebook group**: Interactive development and visualization tools (jupyter, jupyterlab, matplotlib, seaborn). Marked `optional = true`, so it is installed only when asked for.
 
-Install the base dependencies only:
+Install the runtime and dev dependencies:
 
 ```bash
 poetry install
 ```
 
-Install with the dev group (for testing and linting):
-
-```bash
-poetry install --with dev
-```
-
-Install with the notebook group (for Jupyter and visualization):
+Add the notebook group when you need Jupyter or plotting:
 
 ```bash
 poetry install --with notebook
 ```
 
-Install with both dev and notebook groups:
+Install runtime dependencies alone, without dev tooling:
 
 ```bash
-poetry install --with dev --with notebook
+poetry install --only main
 ```
 
-or equivalently:
+A group is excluded from the default install only if it is declared
+`optional = true` in `pyproject.toml`:
 
-```bash
-poetry install --with dev,notebook
+```toml
+[tool.poetry.group.notebook]
+optional = true
+
+[tool.poetry.group.notebook.dependencies]
+...
 ```
 
-Choose the installation option that matches your workflow. The dev group is recommended for all development; the notebook group is optional for exploratory analysis and visualization work.
+Without that stanza the group installs with every `poetry install`, and
+`--with <group>` has no effect. Declare any heavy or situational group optional.
 
 ## Overview of the Project Structure
 
@@ -140,20 +153,34 @@ The project uses a standard layout for a Poetry-based Python package. The top-le
         __init__.py
         _version.py
         directories.py
+        py.typed              # Marks the package as typed for consumers
         tests/
             test_directories.py
             test_example.py
             test_version.py
             test_data/
                 ...
-    data/                     # Optional data files included with the package
+    data/                     # Repository-level data; sdist only, never a wheel
     notebooks/                # Jupyter notebooks for exploration or documentation
-    pyproject.toml            # Poetry configuration
+    scripts/                  # Development tooling and entry-point scripts
+        import_boundaries.py
+    .github/
+        workflows/            # Continuous integration
+        dependabot.yml        # Automated dependency updates
+    pyproject.toml            # Project metadata, dependencies and tool config
     poetry.lock               # Dependency lockfile
     Makefile                  # Commands for formatting, linting, testing and coverage
     README.md                 # Project documentation
     LICENSE                   # Project license
 ```
+
+The package directory sits at the repository root rather than under `src/`.
+Recent versions of `poetry new` generate a `src/` layout; this template does not
+follow that, because the package directory is where the tests live and a flat
+layout keeps existing projects from having to relocate it. Note the consequence:
+from the repository root, `import <PACKAGE_NAME>` resolves to the source tree
+even when the package is also installed. `make test-wheel` changes directory
+before running precisely to avoid that.
 
 Running `make coverage-html` creates a directory named `htmlcov` in the project root. This directory contains an HTML report that summarizes test coverage and supports interactive inspection. Git usually ignores this directory because it serves only local development needs.
 
@@ -181,7 +208,24 @@ These changes ensure that the package defines a correct `__version__` attribute 
 
 ## Directory Resolution Utilities
 
-The template includes a module named `directories.py` that centralizes the logic for resolving absolute paths to important project locations. Rather than assembling paths manually with repeated calls to `os.path.join` or relying on assumptions about the current working directory, the module provides functions that locate the package directory, the project root, the `data/` directory and the test directories. Each function can return either the directory itself or a fully qualified path when given a filename.
+The template includes a module named `directories.py` that centralizes the logic for resolving absolute paths to important project locations. Rather than assembling paths manually or relying on assumptions about the current working directory, the module provides functions that locate the package directory, the project root, the data directories and the test directories. Each function returns a `pathlib.Path` — either the directory itself, or a fully qualified path when given a filename.
+
+### Two kinds of data directory
+
+Where data belongs depends on the project, so the module addresses both cases
+and neither is the default:
+
+| Function | Resolves to | Ships in a wheel | Use for |
+|---|---|---|---|
+| `directories.data()` | `<repo>/data/` | No | Data that must never be packaged: large files, private material, generated output |
+| `directories.package_data()` | `<package>/data/` | Yes | Reference data that belongs to the library and must be readable after installation |
+
+Poetry copies only files inside the package directory into a wheel. A repository-level
+`data/` directory can reach a source distribution through `include` in
+`pyproject.toml`, but never a wheel. Consequently `directories.data()` and
+`directories.base()` are meaningful in a source checkout and not in an installed
+package; if your code must read its data after `pip install`, put that data in
+`<package>/data/` and reach it with `directories.package_data()`.
 
 ### Example Usage
 
@@ -201,18 +245,184 @@ print(contents)
 
 This pattern avoids hard-coded paths and ensures that file resolution remains consistent regardless of the user’s current working directory or the environment in which the code is executed.
 
+## Import Conventions
+
+Imports belong at the top of the module. Two situations justify departing from
+that, and each has one correct form.
+
+### Default
+
+All imports at module top, grouped standard library, third-party, first-party.
+Ruff enforces placement and ordering; `make format` sorts them.
+
+### Optional dependencies
+
+A package declared in an optional dependency group may be absent at runtime.
+Import it at the top inside a guard and fail at the point of use, naming the
+group to install:
+
+```python
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+
+def load(path):
+    if yaml is None:
+        raise RuntimeError("pyyaml required: poetry install --with <group>")
+```
+
+This keeps every dependency visible in one place at the top of the file.
+
+### Expensive imports
+
+Defer an import into the function that needs it only when the module is slow to
+import and is needed on some code paths but not others. Measure before deciding:
+
+```bash
+python -X importtime -c "import mlflow" 2>&1 | tail -1
+```
+
+Representative costs, for calibration:
+
+```
+pathlib, json        4-5 ms
+yaml, dotenv        15-17 ms
+bs4                    55 ms
+matplotlib            108 ms
+pdfplumber            158 ms
+seaborn               546 ms
+mlflow               1918 ms
+```
+
+Below 100 ms, import at the top regardless. At or above 100 ms, defer only if
+the code path is conditional, and give the reason inline:
+
+```python
+def log_run(metrics):
+    import mlflow  # deferred: ~1.9 s import, only used when tracking is on
+```
+
+### Both optional and expensive
+
+Defer, and convert the `ImportError` into a message naming the group:
+
+```python
+def convert(path):
+    try:
+        from docling.document_converter import DocumentConverter
+    except ImportError as exc:
+        raise RuntimeError("docling required: poetry install --with docling") from exc
+```
+
+### Not acceptable
+
+- Deferring an import to work around a circular import. Fix the cycle instead.
+- Deferring standard library or inexpensive imports.
+- Suppressing placement warnings rather than using one of the forms above.
+
+### Isolate optional dependencies behind a boundary
+
+A conditional import is a cost, not a solution. Before writing one, ask whether
+the dependency belongs behind an interface.
+
+An optional dependency should be imported by exactly one library module. That
+module owns the dependency: it defines the interface the rest of the code
+depends on, implements that interface, and exposes a factory. Callers receive an
+implementation by injection and never import the dependency themselves.
+
+```python
+# providers.py -- the only module that imports any model SDK
+class LLMProvider(Protocol):
+    def generate(self, prompt: str) -> str: ...
+
+
+class AnthropicProvider(BaseLLMProvider):
+    def _client(self):
+        import anthropic  # optional dependency, owned here
+
+        return anthropic.Anthropic(...)
+
+
+def create_provider(config) -> LLMProvider: ...
+
+
+# every other module
+def summarise(text, provider: LLMProvider):
+    return provider.generate(text)
+```
+
+`make import-boundaries` enforces this. It checks only packages declared in
+groups marked `optional = true` — core dependencies are deliberately out of
+scope, since spreading `pandas` across ten modules is normal while spreading an
+optional service client across ten modules is a missing boundary. Entry points
+(`main.py`, `cli.py`, `__main__.py`, `app.py`, and the `scripts/`, `bin/` and
+`notebooks/` directories) are exempt, because wiring implementations together is
+what an entry point is for.
+
+When a boundary already exists and callers bypass it, route them through it
+rather than adding another guarded import.
+
+### Declaration follows use
+
+If library source imports a package, it must be declared as a runtime dependency
+or in an optional group — never as a development dependency. `make deps-check`
+verifies this.
+
+## Testing the Built Package
+
+The wheel ships the test suite, so the installed package can be verified rather
+than only the source tree:
+
+```bash
+make test-wheel
+```
+
+This builds a wheel, installs it into a throwaway virtualenv, and runs
+`pytest --pyargs <PACKAGE_NAME>.tests` from outside the repository. Tests that
+assert on repository layout (`base()`, `data()`) detect that they are not running
+from a checkout and skip. Continuous integration runs this on every push, which
+catches packaging mistakes that a source-tree test run cannot see.
+
+## Dead Code and Dependency Hygiene
+
+```bash
+make deadcode     # unused functions, classes, variables, unreachable code
+make deps-check   # imported but undeclared, or declared in the wrong group
+```
+
+`make deadcode` is advisory rather than a gate. A library's public API is
+uncalled by construction, so Vulture reports it as dead; read the output rather
+than trusting it. For a project that already carries dead code, baseline it once:
+
+```bash
+poetry run vulture --make-whitelist <PACKAGE_NAME> > deadcode-whitelist.py
+```
+
+Commit that file and pass it to Vulture alongside the package. Existing dead code
+then stops blocking work, while newly dead code still surfaces.
+
 ## Makefile-Based Workflow
 
 The Makefile provides a simple interface for common development tasks and runs all tools inside the Poetry environment. After you create and activate a development environment and install dependencies, issue the following commands from the project root:
 
-| Command              | Description                          |
-|----------------------|--------------------------------------|
-| `make test`          | Run the test suite.                  |
-| `make format`        | Format the code with Black.          |
-| `make lint`          | Run Flake8 checks.                   |
-| `make check`         | Run formatting, linting and tests.   |
-| `make coverage`      | Run tests with coverage enforcement. |
-| `make coverage-html` | Create an HTML coverage report.      |
+| Command                  | Description                                                        |
+|--------------------------|--------------------------------------------------------------------|
+| `make test`              | Run the test suite.                                                |
+| `make format`            | Apply safe lint fixes, then format, with Ruff.                     |
+| `make format-check`      | Verify formatting without rewriting files. Used by CI.             |
+| `make lint`              | Run Ruff lint checks.                                              |
+| `make check`             | Formatting check, lint and tests. Does not modify files.           |
+| `make coverage`          | Run tests with coverage enforcement.                               |
+| `make coverage-html`     | Create an HTML coverage report.                                    |
+| `make import-boundaries` | Verify optional dependencies stay isolated behind one module.      |
+| `make deps-check`        | Verify imported packages are declared, and in the right group.     |
+| `make deadcode`          | Report unused code. Advisory, not a gate.                          |
+| `make test-wheel`        | Build a wheel and run the shipped tests against the installed one. |
+
+`make check` deliberately does not reformat. Run `make format` to fix what is
+fixable, then `make check` to verify.
 
 These commands support routine quality checks and keep the workflow consistent across local development and continuous integration.
 

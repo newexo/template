@@ -1,33 +1,58 @@
-[tool.poetry]
+[project]
 name = "template"
 version = "0.0.1"
 description = "Template for creating new python packages"
-authors = ["Reuben Brasher <rkbrasher@gmail.com>"]
+authors = [{ name = "Reuben Brasher", email = "rkbrasher@gmail.com" }]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "template"}]
-include = ["data/*", "README.md", "template/tests/test_data/*"]
+# Upper bound is required: Poetry cannot resolve dependencies that cap
+# themselves at <4.0 against an unbounded range. Equivalent to the old
+# Poetry-style `python = "^3.11"`.
+requires-python = ">=3.11,<4.0"
+dependencies = []
 
-[tool.poetry.dependencies]
-python = "^3.11"
+[tool.poetry]
+packages = [{ include = "template" }]
+# Non-package paths reach the SOURCE DISTRIBUTION only. Poetry does not copy
+# files from outside the package directory into a wheel, so data/ and README.md
+# ship in the sdist and nowhere else. Anything that must be importable from an
+# installed wheel has to live inside template/ (see directories.package_data).
+include = ["data/*", "README.md"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.0.1"
-coverage = "^7.12.0"
-ruff = "^0.15.11"
+pytest = "^9.1.1"
+coverage = "^7.16.0"
+ruff = "^0.16.7"
+vulture = "^2.16"
+deptry = "^0.25.1"
+
+# Optional: NOT installed by a plain `poetry install`.
+# Use `poetry install --with notebook` when you need it.
+[tool.poetry.group.notebook]
+optional = true
 
 [tool.poetry.group.notebook.dependencies]
 jupyter = "^1.1.1"
-jupyterlab = "^4.4.8"
-matplotlib = "^3.10.7"
+jupyterlab = "^4.6.3"
+matplotlib = "^3.11.2"
 seaborn = "^0.13.2"
 
 [tool.ruff]
 line-length = 88
 
+[tool.ruff.lint]
+# E/F: pycodestyle + pyflakes (includes E402 import placement, F401 unused
+# imports). I: import sorting. UP: pyupgrade. ERA001: commented-out code.
+# ARG is deliberately NOT enabled -- unused arguments are usually signature
+# contracts in interface implementations, not dead code.
+select = ["E", "F", "I", "UP", "ERA001"]
+
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "_version.py" = ["F841"]
+
+[tool.pytest.ini_options]
+testpaths = ["template/tests"]
 
 [tool.coverage.run]
 omit = [
@@ -44,6 +69,11 @@ exclude_lines = [
     "if __name__ == .__main__.:",
 ]
 
+[tool.deptry]
+# The test suite imports pytest, which is correctly a dev dependency.
+[tool.deptry.per_rule_ignores]
+DEP004 = ["pytest"]
+
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

@@ -133,3 +133,9 @@ dmypy.json
 
 # MacOS nonsense
 .DS_Store
+
+# Ruff
+.ruff_cache/
+
+# Throwaway virtualenv created by `make test-wheel`
+.wheeltest/
