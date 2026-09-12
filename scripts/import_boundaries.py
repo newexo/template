@@ -5,13 +5,23 @@ module owns the dependency: it defines the interface the rest of the code uses,
 implements it, and hands out instances. Everything else receives an
 implementation by injection and never imports the dependency itself.
 
-Scope is taken from the project's own declaration -- only packages in Poetry
-groups marked `optional = true` are checked. Core dependencies are deliberately
-out of scope: spreading pandas across ten modules is normal, spreading an
-optional service client across ten modules is a missing boundary.
+Scope is taken from the project's own declaration: packages in Poetry groups
+marked `optional = true`, plus every extra, in either the PEP 621
+`[project.optional-dependencies]` form or the older `[tool.poetry.extras]`
+form. Extras matter most -- Poetry groups never appear in wheel metadata, so a
+library's consumer-facing optional dependencies are always extras.
+
+Core dependencies are deliberately out of scope: spreading pandas across ten
+modules is normal, spreading an optional service client across ten modules is a
+missing boundary.
 
 Entry points are exempt. Wiring concrete implementations together is what an
 entry point is for.
+
+Known limitation: PEP 735 `[dependency-groups]` is NOT read. A project using
+that form gets a vacuous pass -- the check reports "nothing to check" and exits
+0. Treat that message with suspicion on any project you know has optional
+dependencies, and extend `optional_dependencies()` rather than trusting it.
 
 Usage:  python scripts/import_boundaries.py [project_root]
 Exit:   0 if every optional dependency is isolated, 1 otherwise.
@@ -19,6 +29,7 @@ Exit:   0 if every optional dependency is isolated, 1 otherwise.
 
 import ast
 import os
+import re
 import sys
 import tomllib
 from collections import defaultdict
@@ -29,6 +40,8 @@ ENTRY_DIRS = ("scripts", "bin", "notebooks")
 # Distribution name -> module name, where they differ.
 ALIASES = {
     "beautifulsoup4": "bs4",
+    "google-genai": "google",  # imported as `from google import genai`
+    "google-generativeai": "google",
     "opencv-python": "cv2",
     "pillow": "PIL",
     "python-dotenv": "dotenv",
@@ -47,17 +60,39 @@ def is_entry_point(relative_path):
     return os.path.basename(relative_path) in ENTRY_FILES or parts[0] in ENTRY_DIRS
 
 
+def requirement_name(requirement):
+    """Leading distribution name of a PEP 508 requirement string."""
+    return re.split(r"[\s\[(<>=!~;]", requirement.strip(), maxsplit=1)[0]
+
+
 def optional_dependencies(root):
     with open(os.path.join(root, "pyproject.toml"), "rb") as handle:
         config = tomllib.load(handle)
-    groups = config.get("tool", {}).get("poetry", {}).get("group", {})
+    poetry = config.get("tool", {}).get("poetry", {})
     names = set()
-    for group in groups.values():
+
+    # Poetry groups marked optional (developer-facing)
+    for group in poetry.get("group", {}).values():
         if not group.get("optional"):
             continue
         for distribution in group.get("dependencies", {}):
             if distribution != "python":
                 names.add(module_name(distribution))
+
+    # PEP 621 extras (consumer-facing; these are what reach wheel metadata)
+    for requirements in (
+        config.get("project", {}).get("optional-dependencies", {}).values()
+    ):
+        for requirement in requirements:
+            distribution = requirement_name(requirement)
+            if distribution:
+                names.add(module_name(distribution))
+
+    # Legacy Poetry extras
+    for distributions in poetry.get("extras", {}).values():
+        for distribution in distributions:
+            names.add(module_name(requirement_name(distribution)))
+
     return names
 
 
@@ -91,7 +126,7 @@ def source_files(root):
 def check(root):
     watched = optional_dependencies(root)
     if not watched:
-        print("No optional dependency groups declared; nothing to check.")
+        print("No optional dependency groups or extras declared; nothing to check.")
         return 0
 
     importers = defaultdict(lambda: {"library": set(), "entry": set()})

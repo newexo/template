@@ -66,6 +66,9 @@ test-wheel:
 	rm -rf dist .wheeltest
 	poetry build -f wheel
 	python -m venv .wheeltest
+	# If this project declares extras AND its shipped tests need them (for
+	# example tests that mock a vendor symbol), install them here instead:
+	#   ./.wheeltest/bin/pip install --quiet "$$(ls dist/*.whl)[all]" pytest
 	./.wheeltest/bin/pip install --quiet dist/*.whl pytest
 	cd "$$(mktemp -d)" && $(CURDIR)/.wheeltest/bin/python -m pytest --pyargs $(PACKAGE).tests -q
 	rm -rf .wheeltest
