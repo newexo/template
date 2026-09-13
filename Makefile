@@ -50,13 +50,26 @@ deps-check:
 	poetry run deptry .
 
 # Report unused code. ADVISORY: a library's public API is uncalled by
-# construction, so read the output rather than trusting it. For a project with
-# pre-existing dead code, baseline it once with
-#   poetry run vulture --make-whitelist $(PACKAGE) > deadcode-whitelist.py
-# commit that file, and pass it as an extra argument below; vulture then
-# reports only newly dead code.
+# construction, so read the output rather than trusting it.
+# deadcode-whitelist.py is picked up automatically once it exists, so a
+# baselined project reports only newly dead code.
 deadcode:
-	poetry run vulture $(PACKAGE) scripts
+	poetry run vulture $(PACKAGE) scripts $(wildcard deadcode-whitelist.py)
+
+# Baseline the existing dead code in a project that already carries some, so it
+# stops blocking work while new dead code still surfaces. Commit the result.
+# Two traps are handled here, both of which turn `make check` red if this is
+# done by hand: vulture exits 3 whenever it finds anything, and it emits a
+# trailing blank line that `ruff format --check` rejects.
+deadcode-baseline:
+	-poetry run vulture --make-whitelist $(PACKAGE) scripts > deadcode-whitelist.py
+	poetry run ruff format deadcode-whitelist.py
+	@if [ -s deadcode-whitelist.py ]; then \
+	    echo "baseline written to deadcode-whitelist.py - review it, then commit it"; \
+	else \
+	    rm -f deadcode-whitelist.py; \
+	    echo "no dead code found; no baseline needed"; \
+	fi
 
 # Build a wheel, install it into a throwaway virtualenv and run the shipped
 # tests against the INSTALLED package. The recipe changes directory first
@@ -76,4 +89,4 @@ test-wheel:
 	@echo "shipped tests pass against the installed wheel"
 
 .PHONY: test format format-check lint check coverage coverage-html \
-        import-boundaries deps-check deadcode test-wheel
+        import-boundaries deps-check deadcode deadcode-baseline test-wheel

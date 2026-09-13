@@ -394,14 +394,21 @@ make deps-check   # imported but undeclared, or declared in the wrong group
 
 `make deadcode` is advisory rather than a gate. A library's public API is
 uncalled by construction, so Vulture reports it as dead; read the output rather
-than trusting it. For a project that already carries dead code, baseline it once:
+than trusting it.
+
+For a project that already carries dead code, baseline it once:
 
 ```bash
-poetry run vulture --make-whitelist <PACKAGE_NAME> > deadcode-whitelist.py
+make deadcode-baseline
 ```
 
-Commit that file and pass it to Vulture alongside the package. Existing dead code
-then stops blocking work, while newly dead code still surfaces.
+Commit the resulting `deadcode-whitelist.py`. `make deadcode` picks it up
+automatically once it exists, so existing dead code stops blocking work while
+newly dead code still surfaces.
+
+Use the target rather than running Vulture by hand: it tolerates Vulture's exit
+code 3, and it formats the output, which otherwise ends with a trailing blank
+line that `ruff format --check` rejects.
 
 ## Makefile-Based Workflow
 
@@ -419,6 +426,7 @@ The Makefile provides a simple interface for common development tasks and runs a
 | `make import-boundaries` | Verify optional dependencies stay isolated behind one module.      |
 | `make deps-check`        | Verify imported packages are declared, and in the right group.     |
 | `make deadcode`          | Report unused code. Advisory, not a gate.                          |
+| `make deadcode-baseline` | Baseline existing dead code so only new dead code surfaces.        |
 | `make test-wheel`        | Build a wheel and run the shipped tests against the installed one. |
 
 `make check` deliberately does not reformat. Run `make format` to fix what is
