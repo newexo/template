@@ -21,8 +21,8 @@ include = ["data/*", "README.md"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.1.1"
-coverage = "^7.16.0"
-ruff = "^0.16.7"
+coverage = "^7.16.1"
+ruff = "^0.16.8"
 vulture = "^2.16"
 deptry = "^0.25.1"
 
