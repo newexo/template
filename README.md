@@ -353,10 +353,27 @@ def summarise(text, provider: LLMProvider):
     return provider.generate(text)
 ```
 
-`make import-boundaries` enforces this. It checks only packages declared in
-groups marked `optional = true` — core dependencies are deliberately out of
-scope, since spreading `pandas` across ten modules is normal while spreading an
-optional service client across ten modules is a missing boundary. Entry points
+`make import-boundaries` enforces this. It checks packages declared optional —
+Poetry groups marked `optional = true`, and extras in either the
+`[project.optional-dependencies]` or `[tool.poetry.extras]` form. Core
+dependencies are deliberately out of scope, since spreading `pandas` across ten
+modules is normal while spreading an optional service client across ten modules
+is a missing boundary.
+
+A distribution declared in `[project.dependencies]` is excluded even when it
+also appears inside an extra. That happens with the forwarding idiom, where a
+core dependency is named in an extra only to select the vendor extras beneath
+it:
+
+```toml
+dependencies = ["reusable-llm-provider"]
+
+[project.optional-dependencies]
+anthropic = ["reusable-llm-provider[anthropic]"]
+```
+
+The carrier is genuinely core and will always be installed, so watching it could
+only ever produce a false leak. Entry points
 (`main.py`, `cli.py`, `__main__.py`, `app.py`, and the `scripts/`, `bin/` and
 `notebooks/` directories) are exempt, because wiring implementations together is
 what an entry point is for.
