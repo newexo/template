@@ -188,15 +188,7 @@ This structure separates the importable package from its tests and from suppleme
 
 ## Versioning and Package Initialization
 
-The package exposes its version through variables defined in `__init__.py` and `_version.py`. After you rename the package, update both files to use the new package name.
-
-In `__init__.py`, update the import:
-
-```python
-from <PACKAGE_NAME>._version import __version__
-```
-
-In `_version.py`, update the metadata lookup so that it matches the new package name:
+The package exposes its version through `__version__`, defined in `_version.py` and re-exported from `__init__.py`. After you rename the package, update the metadata lookup in `_version.py` so that it matches the new package name:
 
 ```python
 import importlib.metadata
@@ -204,7 +196,9 @@ import importlib.metadata
 __version__ = importlib.metadata.version("<PACKAGE_NAME>")
 ```
 
-These changes ensure that the package defines a correct `__version__` attribute and that the metadata lookup succeeds after renaming.
+`__init__.py` needs no change, because it uses a relative import (`from ._version import __version__`).
+
+This ensures that the metadata lookup succeeds after renaming and that the package defines a correct `__version__` attribute.
 
 ## Directory Resolution Utilities
 
